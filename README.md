@@ -5,7 +5,7 @@
 ## Table of Contents
 1. Introduction
 2. Resources
-   - Audits
+   - [Audits](#audits)
    - Articles
    - Cheat Sheets
    - Projects
