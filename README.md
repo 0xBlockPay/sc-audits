@@ -22,6 +22,9 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 
 ### Audits
 - [PasswordStore](./2024-09-25-password-store.pdf)
+- [PuppyRaffle](./2024-09-26-puppy-raffle.pdf)
+- [SantasList](./2024-09-27-santas-list.pdf)
+- [Ethernaut](./2024-09-30-ethernaut.pdf)
 
 ### Articles
 - Basics of Smart Contract Auditing
