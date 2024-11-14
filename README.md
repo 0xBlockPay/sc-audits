@@ -28,6 +28,8 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 - [Ethernaut](./2024-09-30-ethernaut.pdf)
 - [FuzzTest](./2024-10-04-fuzz.pdf)
 - [T-Swap](./2024-10-04-t-swap.pdf)
+- [MysteryBox](./2024-09-30-mystery-box.pdf)
+- [ThunderLoan](./2024-10-15-thunder-loan.pdf)
 
 ### Articles
 - Basics of Smart Contract Auditing
