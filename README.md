@@ -30,6 +30,7 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 - [T-Swap](./2024-10-04-t-swap.pdf)
 - [MysteryBox](./2024-09-30-mystery-box.pdf)
 - [ThunderLoan](./2024-10-15-thunder-loan.pdf)
+- [StarkNet](./2024-10-10-starknet.pdf)
 
 ### Articles
 - Basics of Smart Contract Auditing
