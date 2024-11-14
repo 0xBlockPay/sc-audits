@@ -13,7 +13,7 @@
 3. Tools
 4. Methodologies
 5. Code Examples
-   - Account Abstraction
+   - [Account Abstraction](#account-abstraction)
 6. License
 
 ## Introduction
@@ -57,7 +57,7 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 - Audit Methodology
 
 ## Code Examples
-- Account Abstraction
+### Account Abstraction
 
 Account abstraction in Ethereum is a proposed upgrade that aims to make interacting with the blockchain more flexible and user-friendly. Here are the key points:
 
