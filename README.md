@@ -36,6 +36,7 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 ### Articles
 - Basics of Smart Contract Auditing
 - Advanced Techniques in Smart Contract Security
+- Defi invarient
 
 ### Cheat Sheets
 - Solidity Syntax
@@ -212,3 +213,106 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 If you have any questions or suggestions, please feel free to open an issue or submit a pull request.
 
 !Smart Contract Audit Image
+
+### Defi invarient
+
+Protocols that are widely used and recognized in the cryptocurrency space:
+
+- Uniswap: A decentralized exchange (DEX) that allows users to swap tokens directly from their wallets without the need for an intermediary.
+- Aave: A lending and borrowing platform that offers features like flash loans, which allow users to borrow and repay funds within a single transaction.
+- MakerDAO: A protocol that enables users to generate a stablecoin (DAI) by locking up collateral in a smart contract.
+- Compound: A DeFi platform that allows users to lend and borrow cryptocurrencies, with interest rates that are algorithmically determined.
+- Curve: A DEX that focuses on stablecoin trading, offering low slippage and efficient trades.
+- SushiSwap: A fork of Uniswap, SushiSwap includes additional features like staking rewards for liquidity providers.
+- dYdX: A decentralized exchange that offers advanced trading features, including perpetual contracts and spot trading.
+- Balancer: A protocol that allows users to create and trade multi-asset portfolios with customizable weights.
+- Lido: A liquid staking solution that allows users to stake their Ethereum and earn rewards while maintaining liquidity.
+- De.Fi: A platform that provides analytics and portfolio management tools for DeFi users.
+
+#### Uniswap (V2)
+Uniswap uses the Constant Product Market Maker (CPMM) invariant. The invariant ensures that the product of the reserves of two tokens in a liquidity pool remains constant:
+
+𝑥⋅𝑦=𝑘
+
+Where:
+𝑥 is the reserve of token A.
+𝑦 is the reserve of token B.
+𝑘 is a constant value representing the product of the initial reserves.
+
+#### Aave
+Aave's invariant ensures that the total value supplied to the protocol (deposits plus interest) should be greater than or equal to the total value borrowed (loans plus interest):
+
+Total Deposits + Accrued Interest ≥ Total Borrows + Accrued Debt
+
+#### MakerDAO
+
+MakerDAO ensures that the value of the collateral locked in the system is greater than or equal to the value of the outstanding DAI loans:
+
+Collateral Value ≥ DAI Debt ⋅ Liquidation Ratio
+
+#### Compound
+
+Compound's invariant ensures that the total supply of tokens is equal to the total borrow of tokens, adjusted for interest rates:
+
+∑Supply = ∑Borrow ⋅(1+Interest Rate)
+
+#### Curve
+
+Curve uses the StableSwap invariant to maintain the balance of stablecoins in its pools:
+
+$$ A \cdot n^n \cdot \sum x_i + D = D \cdot A \cdot n^n + \frac{D{n+1}}{nn \cdot \prod x_i} $$
+
+Where:
+
+𝑥𝑖 represents the balance of the 
+𝑖 -th token in the pool.
+𝐷 is the total amount of tokens in the pool when they have an equal price.
+𝐴 is the amplification coefficient.
+𝑛 is the number of tokens in the pool.
+
+#### SushiSwap
+SushiSwap also uses the Constant Product Market Maker (CPMM) invariant similar to Uniswap:
+
+𝑥⋅𝑦=𝑘
+
+Where:
+
+𝑥 is the reserve of token A.
+𝑦 is the reserve of token B.
+𝑘 is a constant value representing the product of the initial reserves.
+
+These invariants are fundamental in ensuring the stability, security, and efficiency of these DeFi protocols.
+
+#### dYdX
+dYdX uses cross-margining, which means that the margin and leverage are shared across all open positions. The invariant ensures that the total equity in the account is sufficient to cover the potential losses from all open positions:
+
+Equity = Margin⋅(1+Leverage)
+
+Where:
+
+Equity is the total value of the user's account.
+Margin is the amount of collateral (usually USDC) deposited by the user.
+Leverage is the factor by which the user's position is amplified.
+This invariant ensures that the user's account has enough margin to cover potential losses, even when using leverage.
+
+#### Balancer
+Balancer allows users to create and trade multi-asset portfolios with customizable weights. The balance invariant for Balancer pools ensures that the value function remains constant:
+
+∑𝑖=1𝑛𝑤𝑖⋅𝑥𝑖=𝑘
+
+Where:
+
+𝑤𝑖 is the normalized weight of the 
+𝑖 -th token in the pool.
+
+𝑥𝑖 is the balance of the 
+𝑖 -th token in the pool.
+
+𝑘 is a constant value representing the total value of the pool.
+
+#### Lido
+Lido is a liquid staking solution that allows users to stake their Ethereum and earn rewards while maintaining liquidity. The balance invariant for Lido ensures that the stETH (staked ETH) tokens maintain a 1:1 ratio with the underlying staked ETH:
+
+stETH=ETH
+
+This invariant ensures that for every unit of ETH staked, one unit of stETH is issued, and vice versa when stETH is redeemed.
