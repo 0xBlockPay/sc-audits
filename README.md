@@ -6,7 +6,7 @@
 1. Introduction
 2. Resources
    - [Audits](#audits)
-   - Articles
+   - [Articles](#articles)
    - Cheat Sheets
    - Projects
    - Report Writing
@@ -36,7 +36,7 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 ### Articles
 - Basics of Smart Contract Auditing
 - Advanced Techniques in Smart Contract Security
-- Defi invarient
+- [Defi invarient](#defi-invarient)
 
 ### Cheat Sheets
 - Solidity Syntax
