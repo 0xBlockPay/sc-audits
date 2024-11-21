@@ -38,8 +38,15 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 - Advanced Techniques in Smart Contract Security
 - [Defi invariant](#defi-invariant)
 
-### Wallet Security
-- Overwiew 
+### [Wallet Security](#wallet-security)
+- Overwiew
+#### Desktop
+- [Intel SGX](#intel-sgx)
+- [Apache Teaclave SGX SDK](#apache-teaclave-sgx-sdk)
+- [EGO](#ego)
+
+#### Mobile
+- Android Trusty TEE
 
 ### Cheat Sheets
 - Solidity Syntax
@@ -527,8 +534,6 @@ make install
 4. Example
 
 ```go
-// https://tour.golang.org/concurrency/1
-
 package main
 
 import (
@@ -575,6 +580,281 @@ If you would like to add addition file with certs is necessary to add `enclave.j
     ]
 }
 ```
+
+#### Mobile
+
+#### Android Trusty TEE
+
+Android Trusty is a secure operating system (OS) that provides a Trusted Execution Environment (TEE) for Android devices. Trusty runs on the same processor as the Android OS but is isolated from the rest of the system by both hardware and software1. This isolation ensures that sensitive data and operations are protected from malicious apps and potential vulnerabilities in the Android OS.
+
+Key Features:
+Isolation: Trusty is isolated from the main Android OS, providing a secure environment for sensitive operations.
+
+Hardware and Software Protection: Trusty uses hardware features like ARM TrustZone (on ARM processors) and Intel VT (on Intel processors) to create a secure environment.
+
+Open Source: Trusty is provided as an open-source alternative to proprietary TEE solutions, offering transparency and ease of debugging.
+
+APIs for Development: Trusty provides APIs for developing trusted applications and services that run in the TEE, as well as for normal apps to interact with these trusted services.
+
+Use Cases:
+Secure Data Processing: Protecting sensitive data such as payment information, biometric data, and encryption keys.
+
+Trusted Applications: Running applications that require a high level of security, such as mobile payment apps and DRM solutions.
+
+Inter-Process Communication: Allowing secure communication between trusted and untrusted parts of the system.
+
+End of the theory, let's dive into the details from a developer's point of view: It's challenging because it's an isolated mini operating system.
+
+Even with something as substantial as 400 GB of memory, it might still not be sufficient.
+
+!!! From a developer's perspective, a significant challenge in adding a custom algorithm to `Trusty` is the necessity to recompile the entire operating system. This process can be time-consuming and complex, as it requires in-depth knowledge of the system's architecture and dependencies. Additionally, ensuring compatibility and maintaining the integrity of the secure environment adds to the difficulty. This can be a considerable barrier for developers looking to integrate new algorithms into the Trusty environment.
+
+I did some reserach, How to add ED25519 algorithm to trusty?
+
+To that we can use `openssl-rust crate`.
+
+First dependency should be put to: trusty api application's `rules.mk`
+```bash
+MODULE_LIBRARY_DEPS +=
+trusty/user/base/lib/openssl-rust \
+```
+
+In `trusty/user/base/lib/openssl-rust` folder should be `rules.mk` file, with dependencies for openssl-rust
+https://android.googlesource.com/trusty/lib/+/refs/heads/main/lib/openssl-rust/rules.mk
+
+Folder with openssl-rust dep is https://android.googlesource.com/platform/external/rust/crates/openssl/+/refs/heads/main
+
+Thanks this is possible use openssl-rust precompile dependencies in trusty application:
+
+Example with openssl in trusty -rust:
+https://android.googlesource.com/trusty/app/sample/+/refs/heads/main/hwcryptohal/server/platform_functions.rs
+
+For sign tx can be use this template:
+https://android.googlesource.com/trusty/app/sample/+/refs/heads/main/rust-hello-world/lib.rs
+
+The following code illustrates a function to sign a SOLANA transaction within Trusty using openssl-rust. The use of openssl-rust here is crucial as it is an integral part of the Trusty library.
+
+```rust
+fn on_message(
+&self,
+_connection: &Self::Connection,
+handle: &Handle,
+msg: Self::Message,) -> tipc::Result<MessageResult> {}
+
+//In function on_message as a msg's can be tx params for signing,
+//and then code for signing with pure openssl-rust
+
+use openssl::pkey::PKey;
+use openssl::sign::Signer;
+
+fn main() {
+println!("Sign transaction in Android Trusty API");
+
+// ED25519 private key generation. Private Key should be load from trust store.
+       
+let private_key = PKey::generate_ed25519().unwrap();
+let public_key = private_key.raw_public_key().unwrap();
+      
+let mut signer = Signer::new_without_digest(&private_key).unwrap();
+
+let tx = hex::decode("914bf4f22ccdedf00950d01020065b233ff0afa0753cd53baa5175827707aa75").unwrap();
+let signature = signer.sign_oneshot_to_vec(&tx).unwrap();
+assert_eq!(signature.len(), 64);
+
+println!("Signature: {:?}", hex::encode(&signature));
+
+let public_key_result =PKey::public_key_from_raw_bytes(&public_key, openssl::pkey::Id::ED25519);
+
+let binding = public_key_result.unwrap();
+
+let mut verifier = openssl::sign::Verifier::new_without_digest(&binding).unwrap();
+
+let verify_result = verifier.verify_oneshot(&signature, &tx);
+
+println!("Signature is: {:?}", verify_result.unwrap());
+
+println!("Signature verification end");
+}
+``` 
+
+That part was straightforward, but now comes the most challenging task: compiling the Android Kernel and Trusty.
+
+1. Download Android Kernel
+
+`repo init --partial-clone -b main -u https://android.googlesource.com/platform/manifest`
+
+`repo sync -c -j8`
+
+2. Download external library for specifiec device
+
+`https://developers.google.com/android/blobs-preview?hl=pl`
+
+3. Build Android library
+
+```bash
+source build/envsetup.sh
+lunch qemu_trusty_arm64-userdebug
+m
+```
+
+4. Download Trusty
+
+```bash
+mkdir trusty
+cd trusty
+repo init -u https://android.googlesource.com/trusty/manifest -b main
+repo sync -j32`
+```
+
+5. Build Trusty image for quemu
+
+`trusty/vendor/google/aosp/scripts/build.py qemu-generic-arm64-test-debug`
+
+6.  Run
+
+`build-root/build-qemu-generic-arm64-test-debug/run`
+
+
+And after lots of scripts modification in folder `build-root/build-qemu-generic-arm64-test-debug`
+should be `lk.bin` and `lk.elf` file.
+
+However, to run my code on Android devices within the Trusted Execution Environment (TEE), it is crucial to note that I would need to be a mobile device vendor. This requirement adds an additional layer of complexity to the process. Moreover, it proved to be a task that, while only time-consuming, demanded significant effort and patience.
+
+#### OP-TEE
+
+Much more promissing solution than google's `Trusty`
+
+**OP-TEE (Open Portable Trusted Execution Environment)** is an open-source project designed to provide a secure, isolated environment for executing sensitive tasks and handling sensitive data on modern ARM-based systems. Here's a detailed overview:
+
+### Key Features of OP-TEE:
+1. **Isolation**: OP-TEE runs alongside the main operating system (known as the "Rich Execution Environment" or REE) but is isolated from it, ensuring that sensitive operations remain secure.
+2. **Open Source**: As an open-source project, OP-TEE provides transparency, allowing developers to review the code, contribute to the project, and customize the TEE to meet specific needs.
+3. **Portability**: Designed to be portable across various hardware platforms, OP-TEE supports a wide range of ARM-based devices, including mobile phones, tablets, and IoT devices.
+4. **Compliance with Standards**: OP-TEE adheres to industry standards such as GlobalPlatform TEE specifications, ensuring compatibility with a variety of trusted applications.
+
+### Components of OP-TEE:
+- **Trusted OS (Operating System)**: The core component that runs in the secure world, managing trusted applications and providing secure services.
+- **Secure Monitor**: A small piece of code running at a higher privilege level, responsible for switching between the normal world and the secure world.
+- **Trusted Applications (TAs)**: Applications running within the trusted OS, performing security-sensitive operations like encryption, decryption, and secure storage.
+
+### Use Cases:
+- **Digital Rights Management (DRM)**: Protecting media content by ensuring it can only be accessed by authorized users.
+- **Secure Payment Systems**: Processing payment transactions securely, protecting user credentials and sensitive financial data.
+- **Enterprise Security**: Ensuring secure access to corporate resources and protecting sensitive information within enterprise environments.
+
+### Benefits:
+- **Enhanced Security**: By isolating sensitive operations from the main OS, OP-TEE significantly reduces the attack surface and protects against various threats.
+- **Flexibility and Customization**: As an open-source project, OP-TEE allows for extensive customization to meet specific security requirements and use cases.
+- **Community and Support**: Being open-source, OP-TEE has a growing community of contributors and users, providing a wealth of knowledge, resources, and support.
+
+OP-TEE is a powerful solution for implementing secure environments on ARM-based devices, enabling a wide range of secure applications and services.
+
+1. Docker images
+```bash
+FROM ubuntu:22.04
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt update && apt upgrade -y
+RUN apt install -y \
+    adb \
+    acpica-tools \
+    autoconf \
+    automake \
+    bc \
+    bison \
+    build-essential \
+    ccache \
+    cpio \
+    cscope \
+    curl \
+    device-tree-compiler \
+    e2tools \
+    expect \
+    fastboot \
+    flex \
+    ftp-upload \
+    gdisk \
+    git \
+    libattr1-dev \
+    libcap-ng-dev \
+    libfdt-dev \
+    libftdi-dev \
+    libglib2.0-dev \
+    libgmp3-dev \
+    libhidapi-dev \
+    libmpc-dev \
+    libncurses5-dev \
+    libpixman-1-dev \
+    libslirp-dev \
+    libssl-dev \
+    libtool \
+    libusb-1.0-0-dev \
+    make \
+    mtools \
+    netcat \
+    ninja-build \
+    python3-cryptography \
+    python3-pip \
+    python3-pyelftools \
+    python3-serial \
+    python-is-python3 \
+    rsync \
+    swig \
+    unzip \
+    uuid-dev \
+    wget \
+    xdg-utils \
+    xterm \
+    xz-utils \
+    zlib1g-dev
+RUN curl https://storage.googleapis.com/git-repo-downloads/repo > /bin/repo && chmod a+x /bin/repo
+RUN mkdir /optee
+WORKDIR /optee
+RUN repo init -u https://github.com/OP-TEE/manifest.git -m qemu_v8.xml && repo sync -j10
+WORKDIR /optee/build
+RUN make -j2 toolchains
+ENV FORCE_UNSAFE_CONFIGURE=1
+RUN make -j$(nproc) check
+```
+
+2. Docker build
+`docker build -t optee:latest .`
+
+3. Docker run
+`sudo docker run -it optee`
+
+`sudo docker start busy_swirles`
+
+`sudo docker exec -it busy_swirles bash`
+
+4. Inside docker
+
+```bash
+git clone https://github.com/apache/incubator-teaclave-trustzone-sdk.git
+cd incubator-teaclave-trustzone-sdk
+./setup.sh
+./build_optee_libraries.sh optee/
+make -C examples/hello_world-rs/
+cd ./tests/
+./test_hello_world.sh
+apt install screen
+apt-get install -y libvdeplug-dev
+apt install libsdl2-dev
+./test_hello_world.sh
+
+```
+much faster and easy than `trusty`
+
+You simply need to generate an Android app with native dependencies and incorporate your Trusty-generated code as a .so file. 
+
+
+
+
+
+
+
+
+
+
 
 
 
