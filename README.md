@@ -46,7 +46,8 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 - [EGO](#ego)
 
 #### Mobile
-- Android Trusty TEE
+- [Android Trusty TEE](#android-trusty-tee)
+- [OP-TEE](#op-tee)
 
 ### Cheat Sheets
 - Solidity Syntax
