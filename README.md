@@ -49,6 +49,8 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 - [Android Trusty TEE](#android-trusty-tee)
 - [OP-TEE](#op-tee)
 
+### [Memory Allocators](#memory-allocators-1)
+
 ### Cheat Sheets
 - Solidity Syntax
 - Common Vulnerabilities
@@ -847,8 +849,703 @@ much faster and easy than `trusty`
 
 You simply need to generate an Android app with native dependencies and incorporate your Trusty-generated code as a .so file. 
 
+### Memory allocators
+
+A crucial aspect of wallet security, perhaps even the most important, is memory allocation. 
+
+It is the process of assigning memory space to various programs and data structures within a computer system. It is essential for running programs and managing data.
+
+Memory allocators can introduce vulnerabilities that attackers might exploit. Here are some common types:
+
+* Heap Overflow: Occurs when a program writes more data to a buffer located on the heap than it can hold, potentially overwriting adjacent memory.
+
+* Use-After-Free (UAF): Happens when a program continues to use memory after it has been freed, leading to potential code execution or data corruption.
+
+* Double Free: When a program frees the same block of memory twice, leading to unpredictable behavior and potential security breaches.
+
+* Invalid Free: Freeing a memory block that was never allocated or already freed can cause crashes or allow attackers to manipulate memory.
+
+These vulnerabilities can lead to arbitrary code execution, denial of service, or information leakage. Secure memory allocators and best practices in coding can help mitigate these risks.
+
+Here, I would like to briefly describe the primary memory allocators we use.
 
 
+* jemalloc
+- Android: Used in older Android versions (before Android 11) and still in use on some devices.
+
+- Mozilla Firefox: Used as the default memory allocator.
+
+* Scudo
+- Android: Introduced in Android 11, used for all native code except on low-memory devices where jemalloc is still used.
+
+- LLVM Compiler: Part of the LLVM compiler-rt project, providing security features to mitigate heap-related vulnerabilities.
+
+* dlmalloc (Doug Lea's malloc)
+- GNU C Library (glibc): Used in older versions of the GNU C Library.
+
+
+#### Overview of dlmalloc
+
+dlmalloc is a memory allocator designed for efficient and flexible memory management. Here's a graphical representation of its key components and processes:
+
+1. **Free List Management**: dlmalloc maintains a list of free memory blocks (chunks). When memory is allocated or freed, it updates this list.
+2. **Splitting and Coalescing**: When a request for memory is made, dlmalloc looks for a sufficiently large free block. If a block is larger than needed, it splits the block. If neighboring blocks are free when a block is freed, it coalesces them into a larger block.
+3. **Bins**: dlmalloc uses bins to organize free chunks by size. This speeds up finding appropriate blocks for allocation.
+4. **Top Chunk**: dlmalloc maintains a top chunk, which is the last contiguous block of memory in the heap. When the top chunk is too small to satisfy a request, dlmalloc expands the heap.
+
+#### Example Implementation in C++
+
+Here’s a simplified version of how you might use dlmalloc in C++. Please note that this is a conceptual example for illustrative purposes:
+
+```cpp
+#include <iostream>
+#include <cstdlib>
+
+// Simplified structure representing a memory chunk
+struct Chunk {
+    size_t size;  // Size of the chunk
+    Chunk* next;  // Pointer to the next free chunk
+};
+
+// Pointer to the start of the free list
+Chunk* freeList = nullptr;
+
+// Function to allocate memory
+void* dlmalloc(size_t size) {
+    Chunk* prev = nullptr;
+    Chunk* current = freeList;
+
+    // Find a free chunk that is large enough
+    while (current && current->size < size) {
+        prev = current;
+        current = current->next;
+    }
+
+    if (!current) {
+        // No suitable chunk found; expand the heap
+        current = reinterpret_cast<Chunk*>(std::malloc(size + sizeof(Chunk)));
+        if (!current) {
+            return nullptr; // Out of memory
+        }
+        current->size = size;
+    } else {
+        // Remove the chunk from the free list
+        if (prev) {
+            prev->next = current->next;
+        } else {
+            freeList = current->next;
+        }
+    }
+
+    return (void*)(current + 1); // Return pointer to the allocated memory
+}
+
+// Function to free memory
+void dlfree(void* ptr) {
+    if (!ptr) return;
+
+    Chunk* chunk = reinterpret_cast<Chunk*>(ptr) - 1; // Get the chunk header
+    chunk->next = freeList;
+    freeList = chunk;
+}
+
+int main() {
+    // Allocate memory
+    void* ptr1 = dlmalloc(100);
+    void* ptr2 = dlmalloc(200);
+
+    // Use the allocated memory (example)
+    std::cout << "Memory allocated at: " << ptr1 << std::endl;
+    std::cout << "Memory allocated at: " << ptr2 << std::endl;
+
+    // Free memory
+    dlfree(ptr1);
+    dlfree(ptr2);
+
+    return 0;
+}
+```
+
+##### Explanation:
+
+1. **dlmalloc**:
+   - Searches for a free chunk large enough to fulfill the request.
+   - If no suitable chunk is found, expands the heap using `std::malloc`.
+
+2. **dlfree**:
+   - Adds the freed chunk back to the free list.
+
+##### Graphical Representation:
+
+```
++---------------------+
+|  Free List (Chunks) |
++----+---+----+---+---+
+     |       |       |
+     v       v       v
++----+   +----+   +----+
+|    |   |    |   |    |
+|    |-->|    |-->|    |
+|    |   |    |   |    |
++----+   +----+   +----+
+```
+
+To integrate Doug Lea's Malloc (dlmalloc) into your project, you need to follow several steps to ensure proper usage and compatibility. Here’s a concise guide to help you get started:
+
+##### dlmalloc in own Project:
+
+1. **Download dlmalloc**:
+   - You can find the source code for dlmalloc on Doug Lea's website or through various open-source repositories. Make sure to download a compatible version.
+
+2. **Include the Source in Your Project**:
+   - Place the downloaded `malloc.c` file into your project's source directory.
+   - Ensure you also have the `malloc.h` header file.
+
+3. **Modify Your Build System**:
+   - Update your project's build configuration to include `malloc.c` in the compilation process. If you're using a Makefile, add the necessary instructions.
+
+4. **Include the Header in Your Code**:
+   - In your C++ source files where you plan to use dlmalloc, include the header file:
+     ```cpp
+     #include "malloc.h"
+     ```
+
+5. **Replace Standard Allocation Functions**:
+   - Replace calls to standard memory allocation functions (`malloc`, `free`, etc.) with dlmalloc functions. dlmalloc functions include `dlmalloc`, `dlfree`, `dlrealloc`, and `dlcalloc`.
+   - Example:
+     ```cpp
+     void* ptr = dlmalloc(100);  // Allocate 100 bytes
+     dlfree(ptr);                // Free allocated memory
+     ```
+
+6. **Compile and Test**:
+   - Compile your project to ensure there are no errors.
+   - Run tests to make sure dlmalloc is functioning as expected and that memory is being managed correctly.
+
+##### Example Integration in a Simple Project:
+
+Here’s a basic example demonstrating how to integrate and use dlmalloc in a simple C++ project.
+
+##### File Structure:
+```
+/my_project
+  ├── malloc.c
+  ├── malloc.h
+  ├── main.cpp
+  └── Makefile
+```
+
+##### main.cpp:
+```cpp
+#include <iostream>
+#include "malloc.h"
+
+int main() {
+    // Allocate memory using dlmalloc
+    void* ptr = dlmalloc(100);
+    if (!ptr) {
+        std::cerr << "Memory allocation failed" << std::endl;
+        return 1;
+    }
+
+    // Use the allocated memory (example)
+    std::cout << "Memory allocated at: " << ptr << std::endl;
+
+    // Free the allocated memory
+    dlfree(ptr);
+    std::cout << "Memory freed" << std::endl;
+
+    return 0;
+}
+```
+
+##### Makefile:
+```makefile
+CC = g++
+CFLAGS = -Wall -std=c++11
+
+all: main
+
+main: main.cpp malloc.c
+	$(CC) $(CFLAGS) -o main main.cpp malloc.c
+
+clean:
+	rm -f main
+```
+
+##### Explanation:
+- **main.cpp**: Demonstrates allocating and freeing memory using dlmalloc.
+- **Makefile**: Compiles the project, including `malloc.c` and linking it with the main program.
+
+#### jemalloc
+
+Let's visually describe how `jemalloc` works. Here's a graphical representation and a brief explanation of its key components and processes:
+
+##### Overview of jemalloc
+
+##### Key Components:
+1. **Bins**:
+   - jemalloc organizes free memory into bins based on size classes. Each bin contains chunks of a specific size range.
+
+2. **Chunks**:
+   - Large memory blocks are divided into chunks, which are then subdivided into smaller blocks for allocation.
+
+3. **Arenas**:
+   - jemalloc uses multiple arenas to reduce contention in multi-threaded applications. Each arena has its own set of bins and free lists.
+
+4. **Centralized Metadata**:
+   - jemalloc maintains metadata to keep track of allocated and free memory chunks, ensuring efficient allocation and deallocation.
+
+##### Graphical Representation
+
+Here's a simplified diagram to illustrate the components:
+
+```
++-------------------------------------------------+
+|                    jemalloc                      |
++-------------------------------------------------+
+|                      Arenas                      |
+|   +-------------------------------------------+  |
+|   |             Arena 1                       |  |
+|   | +--------------+  +--------------+        |  |
+|   | |    Bins      |  |    Chunks    |        |  |
+|   | +--------------+  +--------------+        |  |
+|   +-------------------------------------------+  |
+|   +-------------------------------------------+  |
+|   |             Arena 2                       |  |
+|   | +--------------+  +--------------+        |  |
+|   | |    Bins      |  |    Chunks    |        |  |
+|   | +--------------+  +--------------+        |  |
+|   +-------------------------------------------+  |
+|   +-------------------------------------------+  |
+|   |             Arena N                       |  |
+|   | +--------------+  +--------------+        |  |
+|   | |    Bins      |  |    Chunks    |        |  |
+|   | +--------------+  +--------------+        |  |
+|   +-------------------------------------------+  |
++-------------------------------------------------+
+```
+
+Sure, let's create a graphical step-by-step overview of how `jemalloc` works.
+
+##### Step-by-Step Graphical Overview of jemalloc
+
+##### 1. **Initialization**
+- When the program starts, jemalloc initializes its data structures including arenas and bins.
+
+```
+[Initialization]
+    |
+    V
++---------------------------------------+
+|     jemalloc Data Structures          |
+|                                       |
+|   +---------+   +---------+   +------+|
+|   | Arena 1 |   | Arena 2 |...| Arena N|
+|   +---------+   +---------+   +------+
+|   | Bins    |   | Bins    |   | Bins  |
+|   +---------+   +---------+   +------+
+|                                       |
++---------------------------------------+
+```
+
+##### 2. **Memory Allocation Request**
+- A memory allocation request is made. jemalloc selects an appropriate arena to handle the request.
+
+```
+[Memory Allocation Request]
+    |
+    V
++---------------------------------------+
+|           Select an Arena             |
+|        (based on thread/round-robin)  |
+|                                       |
+|   +---------+                         |
+|   | Arena 1 |--[Request]--------------+
+|   +---------+                         |
+|   | Bins    |                         |
+|   +---------+                         |
++---------------------------------------+
+```
+
+##### 3. **Select Bin and Chunk**
+- Within the selected arena, jemalloc chooses the appropriate bin based on the size of the requested memory. It then finds a suitable chunk within that bin.
+
+```
+[Select Bin and Chunk]
+    |
+    V
++---------------------------------------+
+|      Arena 1                          |
+|   +-------------------------+         |
+|   | Bin for size class X    |---------|---> [Find suitable chunk]
+|   +-------------------------+         |
+|                                       |
++---------------------------------------+
+```
+
+##### 4. **Allocate Memory**
+- jemalloc allocates the memory by removing the chunk from the bin and returning a pointer to the caller. If a chunk is too large, it is split.
+
+```
+[Allocate Memory]
+    |
+    V
++---------------------------------------+
+|      Arena 1                          |
+|   +-------------------------+         |
+|   | Bin for size class X    |         |
+|   +---------+---------------+         |
+|   | Chunk 1 |----> [Allocate]---------|---> [Return pointer to caller]
+|   +---------+                         |
++---------------------------------------+
+```
+
+##### 5. **Memory Deallocation**
+- When memory is freed, jemalloc places the chunk back into the appropriate bin and attempts to coalesce adjacent free chunks to reduce fragmentation.
+
+```
+[Memory Deallocation]
+    |
+    V
++---------------------------------------+
+|      Arena 1                          |
+|   +-------------------------+         |
+|   | Bin for size class X    |<--------|--[Free chunk]
+|   +---------+---------------+         |
+|   | Chunk 1 |<---+                    |
+|   +---------+    |                    |
+|                  |                    |
+|   +---------+    |                    |
+|   | Chunk 2 |<---+                    |
+|   +---------+                         |
++---------------------------------------+
+```
+
+This graphical representation outlines how `jemalloc` manages memory allocation and deallocation through the use of arenas, bins, and chunks, ensuring efficient memory management.
+
+#### Example Usage in C++
+
+Here’s how you might use `jemalloc` in your C++ project:
+
+##### Code Example:
+```cpp
+#include <iostream>
+#include <jemalloc/jemalloc.h>
+
+int main() {
+    // Allocate memory using jemalloc
+    void* ptr = je_malloc(100);
+    if (!ptr) {
+        std::cerr << "Memory allocation failed" << std::endl;
+        return 1;
+    }
+
+    // Use the allocated memory (example)
+    std::cout << "Memory allocated at: " << ptr << std::endl;
+
+    // Free the allocated memory
+    je_free(ptr);
+    std::cout << "Memory freed" << std::endl;
+
+    return 0;
+}
+```
+
+##### Explanation:
+- **Bins**: Used to organize free chunks of memory by size.
+- **Chunks**: Large blocks of memory that are subdivided.
+- **Arenas**: Reduce contention by having multiple arenas handling different threads.
+
+By organizing memory into bins and using multiple arenas, `jemalloc` optimizes memory allocation and deallocation for performance, especially in multi-threaded applications.
+
+To integrate `jemalloc` into your project, follow these steps to ensure proper usage and compatibility. Here's a concise guide:
+
+##### jemalloc
+
+1. **Download and Install jemalloc**:
+   - You can find jemalloc's source code on its [GitHub repository](https://github.com/jemalloc/jemalloc). Clone the repository or download the tarball.
+   - Build and install jemalloc:
+     ```sh
+     git clone https://github.com/jemalloc/jemalloc.git
+     cd jemalloc
+     ./autogen.sh
+     make
+     sudo make install
+     ```
+
+2. **Include jemalloc in Your Project**:
+   - Link jemalloc to your project by specifying it in your build system. For example, if you're using a Makefile, add the necessary flags.
+
+3. **Modify Your Build System**:
+   - Update your project's build configuration to link against jemalloc. This usually involves adding `-ljemalloc` to your linker flags.
+
+4. **Include jemalloc Header**:
+   - In your C++ source files where you plan to use jemalloc, include the header file:
+     ```cpp
+     #include <jemalloc/jemalloc.h>
+     ```
+
+5. **Replace Standard Allocation Functions**:
+   - Replace calls to standard memory allocation functions (`malloc`, `free`, etc.) with jemalloc functions. jemalloc provides equivalent functions like `je_malloc`, `je_free`, etc.
+   - Example:
+     ```cpp
+     void* ptr = je_malloc(100);  // Allocate 100 bytes
+     je_free(ptr);                // Free allocated memory
+     ```
+
+6. **Compile and Test**:
+   - Compile your project to ensure there are no errors.
+   - Run tests to make sure jemalloc is functioning as expected and that memory is being managed correctly.
+
+##### Integration
+
+Here’s a basic example demonstrating how to integrate and use jemalloc in a simple C++ project.
+
+##### File Structure:
+```
+/my_project
+  ├── main.cpp
+  └── Makefile
+```
+
+##### main.cpp:
+```cpp
+#include <iostream>
+#include <jemalloc/jemalloc.h>
+
+int main() {
+    // Allocate memory using jemalloc
+    void* ptr = je_malloc(100);
+    if (!ptr) {
+        std::cerr << "Memory allocation failed" << std::endl;
+        return 1;
+    }
+
+    // Use the allocated memory (example)
+    std::cout << "Memory allocated at: " << ptr << std::endl;
+
+    // Free the allocated memory
+    je_free(ptr);
+    std::cout << "Memory freed" << std::endl;
+
+    return 0;
+}
+```
+
+##### Makefile:
+```makefile
+CC = g++
+CFLAGS = -Wall -std=c++11
+LDFLAGS = -ljemalloc
+
+all: main
+
+main: main.cpp
+	$(CC) $(CFLAGS) main.cpp -o main $(LDFLAGS)
+
+clean:
+	rm -f main
+```
+
+##### Explanation:
+- **main.cpp**: Demonstrates allocating and freeing memory using jemalloc.
+- **Makefile**: Compiles the project, linking it with jemalloc.
+
+Certainly! Here's a graphical step-by-step overview of how `Scudo` works:
+
+##### Overview of Scudo
+
+##### 1. **Initialization**
+- When the program starts, `Scudo` initializes its data structures, including arenas and bins.
+
+```
+[Initialization]
+    |
+    V
++----------------------------------------------------+
+|                  Scudo Data Structures             |
+|                                                    |
+|   +-----------+   +-----------+   +--------------+ |
+|   |  Arena 1  |   |  Arena 2  |...|    Arena N   | |
+|   +-----------+   +-----------+   +--------------+ |
+|   |   Bins    |   |   Bins    |   |     Bins     | |
+|   +-----------+   +-----------+   +--------------+ |
+|                                                    |
++----------------------------------------------------+
+```
+
+##### 2. **Memory Allocation Request**
+- A memory allocation request is made. `Scudo` selects an appropriate arena to handle the request, reducing contention in multi-threaded applications.
+
+```
+[Memory Allocation Request]
+    |
+    V
++----------------------------------------------------+
+|                  Select an Arena                   |
+|             (based on thread/round-robin)          |
+|                                                    |
+|   +-----------+                                    |
+|   |  Arena 1  |--[Request]-------------------------|
+|   +-----------+                                    |
+|   |   Bins    |                                    |
+|   +-----------+                                    |
++----------------------------------------------------+
+```
+
+##### 3. **Select Bin and Chunk**
+- Within the selected arena, `Scudo` chooses the appropriate bin based on the size of the requested memory. It then finds a suitable chunk within that bin.
+
+```
+[Select Bin and Chunk]
+    |
+    V
++----------------------------------------------------+
+|                  Arena 1                           |
+|   +------------------------------+                 |
+|   | Bin for size class X         |-----------------|---> [Find suitable chunk]
+|   +------------------------------+                 |
+|                                                    |
++----------------------------------------------------+
+```
+
+##### 4. **Allocate Memory**
+- `Scudo` allocates the memory by removing the chunk from the bin and returning a pointer to the caller. If a chunk is too large, it is split.
+
+```
+[Allocate Memory]
+    |
+    V
++----------------------------------------------------+
+|                  Arena 1                           |
+|   +------------------------------+                 |
+|   | Bin for size class X         |                 |
+|   +---------+--------------------+                 |
+|   | Chunk 1 |----> [Allocate]----------------------|---> [Return pointer to caller]
+|   +---------+                                      |
++----------------------------------------------------+
+```
+
+##### 5. **Memory Deallocation**
+- When memory is freed, `Scudo` places the chunk back into the appropriate bin and attempts to coalesce adjacent free chunks to reduce fragmentation.
+
+```
+[Memory Deallocation]
+    |
+    V
++----------------------------------------------------+
+|                  Arena 1                           |
+|   +------------------------------+                 |
+|   | Bin for size class X         |<----------------|--[Free chunk]
+|   +---------+--------------------+                 |
+|   | Chunk 1 |<---+                                 |
+|   +---------+    |                                 |
+|                  |                                 |
+|   +---------+    |                                 |
+|   | Chunk 2 |<---+                                 |
+|   +---------+                                      |
++----------------------------------------------------+
+```
+
+This graphical representation outlines how `Scudo` manages memory allocation and deallocation through the use of arenas, bins, and chunks, ensuring efficient memory management and reducing fragmentation.
+
+To integrate **Scudo** into your project, you can follow these steps to ensure proper usage and compatibility. Scudo is designed to be a robust allocator that offers additional security features, making it suitable for security-sensitive applications. Here’s a detailed guide to help you get started:
+
+##### Use Scudo in Your Project
+
+#### 1. **Download and Install Scudo**
+- **Clone the Repository**: Scudo is part of the LLVM project, so you’ll need to get LLVM with the Scudo allocator.
+  ```sh
+  git clone https://github.com/llvm/llvm-project.git
+  cd llvm-project
+  mkdir build && cd build
+  cmake -G "Unix Makefiles" ../llvm
+  make
+  ```
+
+#### 2. **Include Scudo in Your Project**
+- **Link Scudo**: Ensure that your project's build system links against Scudo. This usually involves using the LLVM build and specifying Scudo as your allocator.
+
+#### 3. **Modify Your Build System**
+- **Update Build Configuration**: If using a Makefile or CMake, make sure to link against the LLVM libraries that include Scudo.
+
+##### Using CMake:
+```cmake
+cmake_minimum_required(VERSION 3.13)
+project(MyProject)
+
+set(CMAKE_CXX_STANDARD 11)
+
+# Specify the path to the LLVM build directory
+set(LLVM_DIR "/path/to/llvm-project/build/lib/cmake/llvm")
+
+find_package(LLVM REQUIRED CONFIG)
+llvm_map_components_to_libnames(llvm_libs support scudo)
+
+add_executable(MyProject main.cpp)
+target_link_libraries(MyProject ${llvm_libs})
+```
+
+#### 4. **Use Scudo as the Allocator**
+- **Configure the Environment**: Set environment variables to use Scudo as the memory allocator.
+  ```sh
+  export LD_PRELOAD=/path/to/libscudo.so
+  ```
+
+#### 5. **Run Your Project**
+- **Compile and Run**: Ensure your project compiles correctly and run it to see Scudo in action.
+
+##### Project Structure
+
+#### File Structure:
+```
+/my_project
+  ├── main.cpp
+  └── CMakeLists.txt
+```
+
+#### main.cpp:
+```cpp
+#include <iostream>
+#include <cstdlib>
+
+int main() {
+    // Allocate memory using Scudo
+    void* ptr = malloc(100);  // Request 100 bytes of memory
+
+    if (!ptr) {
+        std::cerr << "Memory allocation failed" << std::endl;
+        return 1;
+    }
+
+    // Use the allocated memory (example)
+    std::cout << "Memory allocated at: " << ptr << std::endl;
+
+    // Free the allocated memory
+    free(ptr);
+    std::cout << "Memory freed" << std::endl;
+
+    return 0;
+}
+```
+
+#### CMakeLists.txt:
+```cmake
+cmake_minimum_required(VERSION 3.13)
+project(MyProject)
+
+set(CMAKE_CXX_STANDARD 11)
+
+# Specify the path to the LLVM build directory
+set(LLVM_DIR "/path/to/llvm-project/build/lib/cmake/llvm")
+
+find_package(LLVM REQUIRED CONFIG)
+llvm_map_components_to_libnames(llvm_libs support scudo)
+
+add_executable(MyProject main.cpp)
+target_link_libraries(MyProject ${llvm_libs})
+```
 
 
 
