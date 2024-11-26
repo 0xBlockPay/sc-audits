@@ -40,6 +40,7 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 
 ### [Wallet Security](#wallet-security)
 - Overwiew
+
 #### Desktop
 - [Intel SGX](#intel-sgx)
 - [Apache Teaclave SGX SDK](#apache-teaclave-sgx-sdk)
@@ -50,6 +51,9 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 - [OP-TEE](#op-tee)
 
 ### [Memory Allocators](#memory-allocators-1)
+- [jemallock](#jemalloc)
+- [Scudo](#scudo)
+- [dlmallock](#dlmalloc)
 
 ### Cheat Sheets
 - Solidity Syntax
@@ -871,20 +875,19 @@ Here, I would like to briefly describe the primary memory allocators we use.
 
 
 * jemalloc
-- Android: Used in older Android versions (before Android 11) and still in use on some devices.
 
-- Mozilla Firefox: Used as the default memory allocator.
+Android: Used in older Android versions (before Android 11) and still in use on some devices.
+Mozilla Firefox: Used as the default memory allocator.
 
 * Scudo
-- Android: Introduced in Android 11, used for all native code except on low-memory devices where jemalloc is still used.
-
-- LLVM Compiler: Part of the LLVM compiler-rt project, providing security features to mitigate heap-related vulnerabilities.
+Android: Introduced in Android 11, used for all native code except on low-memory devices where jemalloc is still used.
+LLVM Compiler: Part of the LLVM compiler-rt project, providing security features to mitigate heap-related vulnerabilities.
 
 * dlmalloc (Doug Lea's malloc)
-- GNU C Library (glibc): Used in older versions of the GNU C Library.
+GNU C Library (glibc): Used in older versions of the GNU C Library.
 
 
-#### Overview of dlmalloc
+#### dlmalloc
 
 dlmalloc is a memory allocator designed for efficient and flexible memory management. Here's a graphical representation of its key components and processes:
 
@@ -1261,7 +1264,7 @@ By organizing memory into bins and using multiple arenas, `jemalloc` optimizes m
 
 To integrate `jemalloc` into your project, follow these steps to ensure proper usage and compatibility. Here's a concise guide:
 
-##### jemalloc
+### jemalloc
 
 1. **Download and Install jemalloc**:
    - You can find jemalloc's source code on its [GitHub repository](https://github.com/jemalloc/jemalloc). Clone the repository or download the tarball.
@@ -1354,7 +1357,7 @@ clean:
 
 Certainly! Here's a graphical step-by-step overview of how `Scudo` works:
 
-##### Overview of Scudo
+### Scudo
 
 ##### 1. **Initialization**
 - When the program starts, `Scudo` initializes its data structures, including arenas and bins.
