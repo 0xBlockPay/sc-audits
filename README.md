@@ -55,6 +55,8 @@ Welcome to the Smart Contract Audit Repository! This repository contains resourc
 - [Scudo](#scudo)
 - [dlmallock](#dlmalloc)
 
+### [Wallet App start]()
+
 ### Cheat Sheets
 - Solidity Syntax
 - Common Vulnerabilities
@@ -1549,6 +1551,333 @@ llvm_map_components_to_libnames(llvm_libs support scudo)
 add_executable(MyProject main.cpp)
 target_link_libraries(MyProject ${llvm_libs})
 ```
+
+### Mobile wallet app start
+
+#### 1. **Bootloader**:
+- **Purpose**: Initializes the hardware and loads the Linux kernel.
+- **Classes/Functions**: No specific class, as this is low-level firmware code.
+
+#### 2. **Kernel**:
+- **Purpose**: Initializes core system components and starts the `init` process.
+- **Classes/Functions**: Kernel-level functions, no specific Java classes.
+
+#### 3. **Init Process**:
+- **Purpose**: `init` is the first user-space process, responsible for starting system services.
+- **Class/Function**:
+  - **Function**: `init`
+  - **Configuration File**: `init.rc`
+
+```plaintext
+[ Bootloader and Kernel Initialization ]
+      ↓
+[ Init Process (init.rc) ]
+```
+
+#### 4. **System Services**:
+- **Purpose**: Start essential system services like `vold`, `netd`, etc.
+- **Classes/Functions**:
+  - **Class**: `com.android.server.SystemServer`
+  - **Method**: `SystemServer.main()`
+
+#### 5. **Zygote**:
+- **Purpose**: Launches Android applications by forking new processes.
+- **Classes/Functions**:
+  - **Class**: `com.android.internal.os.ZygoteInit`
+  - **Method**: `ZygoteInit.main()`
+  - **Class**: `com.android.internal.os.Zygote`
+  - **Method**: `Zygote.fork()`
+
+```plaintext
+[ System Services ]
+      ↓
+[ Zygote Initialization ]
+  com.android.internal.os.ZygoteInit
+```
+
+#### 6. **System Server**:
+- **Purpose**: Provides core system services like Activity Manager, Package Manager, etc.
+- **Classes/Functions**:
+  - **Class**: `com.android.server.SystemServer`
+  - **Method**: `SystemServer.startBootstrapServices()`
+  - **Method**: `SystemServer.startCoreServices()`
+  - **Method**: `SystemServer.startOtherServices()`
+
+#### 7. **Launching an Application**:
+- **Purpose**: Manage application processes and lifecycle.
+- **Classes/Functions**:
+  - **Class**: `android.app.ActivityManagerService`
+  - **Method**: `ActivityManagerService.startProcess()`
+  - **Class**: `com.android.server.am.ActivityManagerService`
+  - **Method**: `startProcessLocked()`
+  - **Class**: `android.app.ActivityThread`
+  - **Method**: `ActivityThread.main()`
+  - **Method**: `ActivityThread.handleBindApplication()`
+
+```plaintext
+[ System Server ]
+      ↓
+[ App Launch Request (ActivityManager) ]
+  android.app.ActivityManagerService
+      ↓
+[ Zygote Forks New Process ]
+  com.android.internal.os.Zygote
+      ↓
+[ Application Initialization ]
+  android.app.ActivityThread
+```
+
+#### Detailed Flow:
+
+1. **Bootloader**: Initializes hardware and loads the Linux kernel.
+2. **Kernel**: Sets up hardware, memory, and initializes drivers.
+3. **Init Process**: Starts user-space processes and reads `init.rc`.
+   - Function: `init`
+4. **System Services**: Initializes core services, including Zygote.
+   - Class: `com.android.server.SystemServer`
+   - Method: `SystemServer.main()`
+5. **Zygote**: Preloads common resources and forks new app processes.
+   - Class: `com.android.internal.os.ZygoteInit`
+   - Method: `ZygoteInit.main()`
+   - Class: `com.android.internal.os.Zygote`
+   - Method: `Zygote.fork()`
+6. **System Server**: Manages system services and components.
+   - Class: `com.android.server.SystemServer`
+   - Method: `SystemServer.startBootstrapServices()`
+   - Method: `SystemServer.startCoreServices()`
+   - Method: `SystemServer.startOtherServices()`
+7. **Application Launch**: Requests via ActivityManager, processed by Zygote, and initializes the app.
+   - Class: `android.app.ActivityManagerService`
+   - Method: `ActivityManagerService.startProcess()`
+   - Class: `com.android.server.am.ActivityManagerService`
+   - Method: `startProcessLocked()`
+   - Class: `android.app.ActivityThread`
+   - Method: `ActivityThread.main()`
+   - Method: `ActivityThread.handleBindApplication()`
+
+
+### ART
+**ART (Android Runtime)** is the managed runtime environment used by applications and some system services on Android. It was introduced as a replacement for the Dalvik Virtual Machine (VM) and offers several improvements in performance, memory management, and battery efficiency. Here’s a detailed look at its key features and how it works:
+
+#### Key Features of ART
+
+1. **Ahead-of-Time (AOT) Compilation**:
+   - Unlike Dalvik, which primarily used Just-In-Time (JIT) compilation, ART compiles the application bytecode into native machine code at the time of installation. This process is known as Ahead-of-Time (AOT) compilation.
+   - **Benefit**: Faster execution and reduced CPU usage during app runtime, which can lead to better performance and battery life.
+
+2. **Improved Garbage Collection**:
+   - ART provides enhanced garbage collection mechanisms that reduce the pause time and overall impact on the user experience.
+   - **Benefit**: Smoother application performance with less noticeable interruptions during memory management.
+
+3. **Better Debugging and Profiling**:
+   - ART offers improved debugging and profiling capabilities compared to Dalvik.
+   - **Benefit**: Developers can more effectively diagnose issues and optimize their applications.
+
+4. **Optimized Memory Management**:
+   - ART includes various optimizations for memory management, making it more efficient in handling memory allocation and deallocation.
+   - **Benefit**: Improved performance and lower memory consumption.
+
+#### How ART Works
+
+1. **Application Installation**:
+   - During the installation of an app, ART compiles the bytecode (DEX files) into native machine code using the `dex2oat` tool. This pre-compilation step stores the optimized native code in the device’s storage.
+
+2. **Runtime Execution**:
+   - When an application runs, ART executes the pre-compiled native code directly, bypassing the need for interpretation or JIT compilation. This results in faster startup times and better overall performance.
+
+3. **Garbage Collection**:
+   - ART manages memory through garbage collection, which automatically reclaims memory occupied by objects that are no longer in use. This process is designed to minimize pauses and improve the responsiveness of applications.
+
+4. **Optional Just-In-Time (JIT) Compilation**:
+   - Although primarily based on AOT, ART can also perform JIT compilation in certain scenarios to optimize frequently executed code paths at runtime.
+
+#### Benefits of ART
+
+- **Performance**: Faster execution of applications due to AOT compilation and optimized memory management.
+- **Battery Life**: Reduced CPU usage during app execution leads to better battery efficiency.
+- **Smooth User Experience**: Improved garbage collection results in fewer pauses and smoother app performance.
+- **Developer Tools**: Enhanced debugging and profiling tools help developers create more efficient and stable applications.
+
+#### Graphical Overview of ART
+
+```
++--------------------------------------+
+|               ART                    |
++--------------------------------------+
+| 1. Ahead-of-Time (AOT) Compilation   |
+|    - Compiles bytecode to native code|
+|    - Tool: dex2oat                   |
++--------------------------------------+
+| 2. Runtime Execution                 |
+|    - Executes pre-compiled code      |
+|    - Functions: art::Runtime::Start  |
++--------------------------------------+
+| 3. Garbage Collection                |
+|    - Manages memory automatically    |
+|    - Functions: GC::CollectGarbage   |
++--------------------------------------+
+| 4. Optional Just-In-Time (JIT)       |
+|    - Optimizes code at runtime       |
+|    - Functions: jit::Jit::Compile    |
++--------------------------------------+
+```
+
+### JVM
+
+The Java Virtual Machine (JVM) is crucial to the operation of Android applications, and it's launched by ART (Android Runtime) through a well-defined sequence of steps. Here’s a detailed look at the process, including relevant classes and methods involved:
+
+#### 1. **System Server Initialization**
+- **Class**: `com.android.server.SystemServer`
+- **Method**: `SystemServer.main()`
+  - This is where the boot process starts within the Android system server. It initializes the core system services.
+
+#### 2. **Zygote Initialization**
+- **Class**: `com.android.internal.os.ZygoteInit`
+- **Method**: `ZygoteInit.main()`
+  - The Zygote process is responsible for initializing the runtime environment. It starts the JVM by loading necessary classes and resources.
+  - **Method**: `ZygoteInit.nativeZygoteInit()`
+    - This native method sets up the runtime and prepares it to handle fork requests for application processes.
+
+#### 3. **JVM Startup**
+- **Class**: `com.android.internal.os.Zygote`
+- **Method**: `Zygote.nativeForkAndSpecialize()`
+  - When a new application process needs to be started, Zygote forks a new process. This method handles the forking and specializes the process for running an application.
+  - **Class**: `java.lang.VMRuntime`
+  - **Method**: `VMRuntime.startJitCompilation()`
+    - This method may be called to start Just-In-Time (JIT) compilation if needed for the new process.
+
+#### 4. **Launching the Application**
+- **Class**: `android.app.ActivityThread`
+- **Method**: `ActivityThread.main()`
+  - This is the entry point of the application process. It sets up the main thread and starts the application.
+  - **Method**: `ActivityThread.attach()`
+    - This method binds the application to the system process.
+  - **Method**: `ActivityThread.handleBindApplication()`
+    - This method initializes the application, sets up the class loader, and starts the main activity.
+
+#### Summary:
+
+1. **System Server Initialization**:
+   - **Class**: `com.android.server.SystemServer`
+   - **Method**: `SystemServer.main()`
+2. **Zygote Initialization**:
+   - **Class**: `com.android.internal.os.ZygoteInit`
+   - **Method**: `ZygoteInit.main()`
+   - **Method**: `ZygoteInit.nativeZygoteInit()`
+3. **JVM Startup**:
+   - **Class**: `com.android.internal.os.Zygote`
+   - **Method**: `Zygote.nativeForkAndSpecialize()`
+   - **Class**: `java.lang.VMRuntime`
+   - **Method**: `VMRuntime.startJitCompilation()`
+4. **Launching the Application**:
+   - **Class**: `android.app.ActivityThread`
+   - **Method**: `ActivityThread.main()`
+   - **Method**: `ActivityThread.attach()`
+   - **Method**: `ActivityThread.handleBindApplication()`
+
+#### Flow Diagram
+
+```plaintext
+[ System Server ]
+  com.android.server.SystemServer
+  -> SystemServer.main()
+        ↓
+[ Zygote Initialization ]
+  com.android.internal.os.ZygoteInit
+  -> ZygoteInit.main()
+  -> ZygoteInit.nativeZygoteInit()
+        ↓
+[ JVM Startup ]
+  com.android.internal.os.Zygote
+  -> Zygote.nativeForkAndSpecialize()
+        ↓
+[ Application Process ]
+  android.app.ActivityThread
+  -> ActivityThread.main()
+  -> ActivityThread.attach()
+  -> ActivityThread.handleBindApplication()
+```
+
+#### POC
+You can run JVM from C++ for that to simulate how APP is running in JVM.
+
+```c++
+#include <jni.h>
+#include <iostream>
+
+void createAndRunJVM() {
+    JavaVM *jvm;
+    JNIEnv *env;
+    JavaVMInitArgs vm_args;
+    JavaVMOption options[1];
+
+    options[0].optionString = (char*) "-Djava.class.path=/home/xxxx/Android/javaVM";
+    vm_args.version = JNI_VERSION_1_8;
+    vm_args.nOptions = 1;
+    vm_args.options = options;
+    vm_args.ignoreUnrecognized = JNI_FALSE;
+
+    int res = JNI_CreateJavaVM(&jvm, (void**)&env, &vm_args);
+    if (res != JNI_OK) {
+        std::cerr << "Error: Unable to launch JVM, code: " << res << std::endl;
+        return;
+    }
+
+    jclass cls = env->FindClass("Main");
+    if (cls == nullptr) {
+        std::cerr << "Error: class Main not found!" << std::endl;
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        jvm->DestroyJavaVM();
+        return;
+    }
+
+    // invoke test method with int as a argument
+    jmethodID mid = env->GetStaticMethodID(cls, "test", "(I)V");
+    if (mid == nullptr) {
+        std::cerr << "Error: method test not found!" << std::endl;
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        jvm->DestroyJavaVM();
+        return;
+    }
+
+    env->CallStaticVoidMethod(cls, mid, 998);
+
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+    }
+
+    jvm->DestroyJavaVM();
+}
+
+int main() {
+    createAndRunJVM();
+    return 0;
+}
+
+```
+
+```java
+public class Main {
+    public static void test(int number) {
+        System.out.println("Java method called with number: " + number);
+    }
+}
+```
+
+```bash
+g++ -shared -fPIC -o libNativeLib.so Main.cpp -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -L"$JAVA_HOME/lib/server" -ljvm
+```
+
+and 
+
+```bash
+./main
+```
+
+
 
 
 
